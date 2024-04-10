@@ -151,5 +151,21 @@
 > 클래스 안에서 정적 행동 방식과 비정적 행동 방식을 조합해야 하는 경우나, MyType.of(...) 스타일의 팩터리 메서드를 작성해야 하는
 > 경우에만 동반 객체(companion object)의 메서드로 함수를 정의해야 한다.  
 
+### 자바와의 호환
+> 자바에서는 최상위 함수를 인식하지 못한다.  
+> 자바에서는 코틀린에서 정의된 최상위 함수를 사용하기 위해서는 해당 최상위 함수가 속한 파일과 뒤에 Kt 를 붙인 이름을 클래스처럼 사용해야한다.  
+> 예시) Shortlists.kt 파일에 최상위 함수 sorted 를 정의했다고 하면 자바에서는 다음의 방식으로 사용할 수 있다.  
+> ```java
+> var reordered = ShortlistsKt.sorted(...);
+> ```
+> 
+> 뒤에 Kt 라는 이름이 거슬린다면 커스텀한 이름으로 변경해주는 애너테이션인 @file:JvmName() 을 코틀린 파일 최상단에 붙인다.  
+> Shortlists.kt
+> ```kotlin
+> @file:JvmName("Shortlists")
+> package travelator
+> ...
+> ```
+
 ---
 
