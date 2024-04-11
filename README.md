@@ -190,3 +190,141 @@
 
 ---
 
+## 확장 함수
+### 함수와 메서드
+> 객체 지향 프로그래밍은 메시지를 객체에 보내서 문제를 해결하는 기술이다. 메서드를 호출하면 런타임 시스템이 올바른 메서드가 호출되도록 처리해 주고,
+> 메서드가 인스턴스의 상태에 접근할 수 있게 해 준다.  
+> myString 의 길이를 알고 싶은가? 그 객체에 myString.length() 라고 메시지를 보내라.
+> 
+> 반대로 함수형 프로그래밍에서는 값을 사용해 함수를 호출함으로써 문제를 해결한다.
+> myString 의 길이를 알고 싶으면 length(myString)처럼 함수에 값을 넘긴다.   
+> 함수는 타입 위에 정의되지 않고, 함수의 파라미터와 결과가 타입을 소유한다.  
+
+### 확장 함수
+> 코틀린 확장 함수는 메서드처럼 보이지만 실제로는 그냥 함수다. 
+> 이름이 암시하듯이 확장 함수는 어떤 타입에 적용할 수 있는 연산을 확장할 수 있게 해 준다.
+> 
+> 다음과 같이 확장 함수를 정의하면, 메서드인 것처럼 이 함수를 호출할 수 있다.
+> ```kotlin
+> fun Customer.nameForMarketing() = "${familyName.uppercase()}, $givenName"
+> 
+> val s = customer.nameForMarketing()
+> ```
+> 확장 함수가 자신이 확장하는 클래스의 비공개 멤버 필드에 대한 접근 권한을 부여받지 않는다는 사실에 유의하라. 
+> 확장 함수는 자신이 정의된 영역에 있는 일반 함수와 똑같은 권한을 가진다.
+
+### 확장 프로퍼티
+> 코틀린은 확장 프로퍼티도 지원한다. 확장 프로퍼티는 프로퍼티(실제로는 메서드임)처럼 호출할 수 있는 정적 함수다. 
+> 확장 프로퍼티는 실제 클래스에 필드를 추가할 수 없으므로 확장 프로퍼티에 데이터를 저장할 수는 없고, 값을 계산해 돌려줄 수만 있다.
+> ```kotlin
+> val Customer.nameForMarketing get() = "${familyName.uppercase()}, $givenName"
+> ```
+
+### 다형성
+> 확장 함수 호출이 메서드 호출처럼 보이지만, 실제로 확장 함수는 객체에 메시지를 보내는 것과 같지 않다. 
+> 다형적인 메서드 호출의 경우 코틀린은 실행 시점에 수신 객체의 동적 타입을 사용해 어떤 메서드를 실행할지 결정하다.
+> 확장의 경우 코틀린은 컴파일 시점에 수신 객체의 정적 타입을 바탕으로 어떤 함수를 호출할지 결정한다.
+> 다형적으로 확장 함수를 사용해야 할 필요가 있다면 보통은 확장 함수에서 다형적인 메서드를 호출하는 방식으로 이런 필요를 만족시킨다.
+
+### 변환 함수명
+> Java 에서 변환 메서드들을 모아놓은 유틸리티 클래스에서의 변환 메서드의 이름은 xxxFrom 으로 짓는 것이 좋다.  
+> 예시로 JSON 에서 Customer 객체로 변환하는 정적 메서드는 다음과 같이 한다.
+> ```java
+> static Customer customerFrom(JsonNode node) {
+>     ...
+> }
+> ```
+> 다만 유틸리티 클래스를 사용하여 변환하는 경우 함수를 합성하기 시작하면 가독성이 떨어지게 된다.
+> ```java  
+> var marketingLength = nameForMarketing(customerFrom(node)).legnth();
+> ```
+> 코틀린에서는 JsonNode 에 변환 함수를 확장 함수로 추가할 수 있으며, nameForMarketing 함수를 Customer 객체에 확장 함수로 추가하여
+> 아래의 함수 합성을 일으키지 않고 가독성있게 표현할 수 있다.
+>
+> 코틀린에서는 확장 함수를 사용해서 JsonNode 에 Customer 객체 변환 함수를 만들어줄 수 있기 때문에
+> customerFrom 이 아닌 toCustomer 메서드를 추가해서 다음의 형태로 호출한다.
+> ```kotlin
+> fun JsonNode.toCustomer(): Customer = ...
+> 
+> val marketingLength = jsonNode.toCustomer().nameForMarketing().length
+> ```
+
+### 널이 될 수 있는 파라미터
+> null 이 될 수 있는 가능성이 있는 객체에 메시지를 보내려면 안전한 호출 연산자 `?.` 를 쓸 수 있다. 하지만
+> 안전한 호출 연산자는 파라미터에서는 도움이 되지 않는다. 널이 될 수 있는 참조를 널이 아닌 파라미터를 취하는 함수에 전달할 때는 조건문으로
+> 호출을 감싸야 한다.
+> ```kotlin
+> val greeting: String? = when (customer) {
+>     null -> null
+>     else -> greetingForCustomer(customer)
+> }
+> ```
+> 
+> let, apply, also 등의 코틀린 영역 함수가 이럴 때 도움이 된다. 특히 let 은 수신 개게를 람다의 파라미터로 바꿔준다.
+> ```kotlin
+> val greeting: String? = customer?.let { greetingForCustomer(it) }
+> ```
+> 여기서 `?.` 는 customer 가 null 이 아닐 때만 let 이 호출되도록 보장한다. 따라서 람다의 파라미터인 it 은 결코 널이 될 수 없고,
+> 람다의 본문 안에서 (널이 아닌 파라미터를 받는) 함수에 전달할 수 있다. ?.let 은 단일 인자를 위한 안전한 호출 연산이라고 생각할 수 있다.
+> 
+> 내포된 호출을 let 을 사용해 파이프라인으로 만든 호출로 펼치면 추가된 모든 메커니즘이 문법적인 잡음을 일으키며, 코드의 의도를 흐릿하게 만든다.
+> ```kotlin
+> val reminder: String? = customer
+>   ?.let {nextTripForCustomer(it) }
+>   ?.let { timeUtilDepartureOfTrip(it, currentTime) }
+>   ?.let { durationToUserFriendlyText(it) }
+>   ?.let { it + " until your next trip!" }
+> ```
+> 문제가 되는 파라미터를 확장 함수의 수신 객체로 만들면 호출을 직접 연결해서 애플리케이션 로직이 드러나게 할 수 있다.
+> ```kotlin
+> val reminder: String? = customer
+>   ?.nextTrip()
+>   ?.timeUntilDeparture(currentTime)
+>   ?.toUserFriendlyText()
+>   ?.plus(" until your next trip!")
+> ```
+
+### 널이 될 수 있는 수신 객체
+> 확장 함수의 수신 객체는 실제로는 파라미터이기 때문에 null 일 수도 있다. 따라서 anObject.method() 와 
+> anObject.extensionFunction() 은 겉보기에는 동등한 호출로 보이지만, anObject 가 null 이면 method 가 절대로 호출될 수 없는
+> 반면 extensionFunction 은 수신 객체의 타입이 널이 될 수 있는 타입인 경우 anObject 가 null 이어도 호출될 수 있다.
+> 
+> 이런 특성을 사용해 앞에서 본 파이프라인에서 안내문을 생성하는 각 단계를 Trip? 의 확장으로 추출할 수 있다.
+> ```kotlin
+> fun Trip?.reminderAt(currentTime: ZonedDateTime): String? = 
+>     this?.timeUntilDeparture(currentTime)
+>         ?.toUserFriendlyTexT()
+>         ?.plus(" until your next trip!")
+> 
+> val reminder: String? = customer.nextTrip().reminderAt(currentTime)
+> ```
+> 확장 안에서 this 를 역참조할 때 안전한 호출 연산자를 사용했다는 점에 유의하라. this 가 메서드 안에서는 결코 null 일 수 없지만
+> 확장 함수의 안에서는 null 일 수 있다.
+> 
+> 반면 이제는 호출하는 함수의 널 가능성 흐름을 더 알아보기 어려워졌다. 타입 검사를 통과하지만, 확장을 호출하는 코드에서는
+> 널 가능성이 눈에 보이지 않기 때문이다.  
+> 
+> Trip?.reminderAt 에는 또 다른 두드러진 단점이 존재한다. 널이 아닌 Trip 에 대해 이 확장을 호출해도 반환 타입이 항상 널이
+> 될 수 있는 String? 타입이 된다는 점이다. 이런 경우 코드를 다음과 같이 써야 한다.
+> ```kotlin
+> val trip: Trip = ...
+> val reminder: String = trip.reminderAt(currentTime) ?: error("Should never happen")
+> ```
+> `fun Trip?.reminderAt(currentTime: ZonedDateTime): String?` 처럼 널이 될 수 있는 타입(여기서는 Trip?)의 확장 함수를 
+> 작성한다면 수신 객체가 널일 때 null 을 반환하는 코드를 작성해서는 안된다.  
+> 널을 반환하는 확장 함수가 필요하다면 확장을 널이 될 수 없는 타입(Trip)의 확장으로 정의하고 확장 호출 시 안전한 호출 연산자(.?)를 사용하라.
+> ```kotlin
+> // 널이 될 수 있는 타입인 경우 null 을 반환할 수 있는 String? 이어서는 안된다.
+> fun Trip?.reminderAt(currentTime: ZonedDateTime): String = 
+>     this?.timeUntilDeparture(currentTime)
+>         ?.toUserFriendlyTexT()
+>         ?.plus(" until your next trip!")
+>         ?: "Start planning your next trip. The world's your oyster!"
+> ```
+
+### 확장 함수 사용 용례
+> 객체의 동작은 객체 내의 메서드를 구현해서 사용한다.  
+> 객체의 확장 함수는 해당 객체를 이용한 계산이 필요한 경우 확장 함수로 정의하여 사용한다.  
+
+---
+
