@@ -343,3 +343,78 @@
 
 ---
 
+## 연산자
+### plus 연산자
+> ```kotlin
+> class Money private constructor(
+>     val amount: BigDecimal,
+>     val currency: Currency
+> ){
+>     ...
+>     fun add(that: Money): Money {
+>         require(currency == that.currency) {
+>             "cannot add Money values of different currencies"
+>         } 
+>         return Money(amount.add(that.amount), currency)
+>     } 
+> }
+> 
+> // 클라이언트에서 사용
+> val grossPrice = netPrice.add(netPrice.mul(taxRate))
+> ```
+> 위와 같이 인스턴스를 인자로 받아서 새로 만든 인스턴스를 반환하는 add 메서드를 코틀린에서는 클라이언트에서 
+> operator 연산자인 `+` 연산자를 사용하도록 변경할 수 있다.  
+> ```kotlin
+> ...
+> operator fun plus(that: Money): Money {
+>     require(currency == that.currency) {
+>         "cannot add Money values of different currencies"
+>     } 
+>     return Money(amount.add(that.amount), currency) 
+> }
+> 
+> // 클라이언트에서 사용
+> val grossPrice = netPrice + netPrice * taxtRate
+> ```
+
+### 기존 자바 클래스를 위한 연산자
+> 위의 Money 클래스는 amount 프로퍼티를 자바 표준 라이브러리의 BigDecimal 로 표현한다. 
+> 코틀린 표준 라이브러리에는 자바 표준 라이브러리가 제공하는 클래스에 대한 연산자를 정의하는 확장 함수가 들어있다.
+> 그래서 위의 코드에서 `amount.add(that.amount)` 를 `amount + that.amount` 으로 변경할 수 있다.  
+
+### invoke operator
+> 코틀린에서는 불변 객체 생성시 자바에서 처럼 of 이름의 팩토리 메서드를 사용하는 대신 invoke operator 함수를 정의하여 사용한다.
+> invoke operator 함수를 정의하면 코틀린 생성자 처럼 사용할 수 있다. 
+> 
+> ```kotlin
+> val proposal = Money(BigDecimal("9.99"), GBP)
+> 
+> val proposal = Money.Companion.invoke(BigDecimal("9.99"), GBP)
+> ```
+> 위 두 호출은 모두 같다.
+> 
+> ```kotlin
+> class Money private constructor(
+>     val amount: BigDecimal,
+>     val currency: Currency
+> ) {
+>     ...
+>     
+>     companion object {
+>         @JvmStatic
+>         fun of(amount: BigDecimal, currency: Currency) =
+>             invoke(amount, currency)
+> 
+>         operator fun invoke(amount: BigDecimal, currency: Currency) =
+>             Money(
+>                 amount.setSacle(currency.defaultFractionDigits),
+>                 currency
+>             ) 
+>     }
+> }
+> ```
+> of 메서드는 자바 메서드와의 호환을 위해서 만들었으며 프로젝트에서 해당 클래스를 사용하는 자바 클라이언트 코드가 없는 경우에는 
+> of 메서드를 제거한다.
+
+---
+
