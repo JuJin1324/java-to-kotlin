@@ -418,3 +418,167 @@
 
 ---
 
+## 자바 스트림에서 이터러블이나 시퀀스로
+### 자바 스트림
+> ```java
+> public static List<String> translateWordsUntilStop(List<String> strings) {
+>     return strings
+>         .stream
+>         .map(word -> translate(word))
+>         .takeWhile(translation -> !translation.equalsIgnoreCase("STOP"))
+>         .collect(toList());
+> }
+> ```
+> 자바 스트림은 지연 계산을 수행한다. strings.map(...).takeWhile(...) 은 아무 일도 하지 않고 collect 같은 최종 연산이 값을
+> 빨아낼 수 있는 파이프라인만 설치한다. 지연 계산은 뒤쪽 파이프라인 단계가 앞쪽 단계에서 수행해야 하는 작업의 양을 제한한다는 뜻이다.
+> 
+> 이 코드는 collect 가 파이프라인을 통해 값을 빨아들이고, takeWhile 은 술어 (조건식 람다)가 false 를 반환하면 이전 파이프라인
+> 단계에서 값을 빨아들이는 일을 중단하기 때문에 이 코드가 작동한다.
+> 
+> 값을 빨아들이는 연산에 대해 이야기하자면, 컬렉션이 작은 경우 스트림이 놀랍도록 느리다. 스트림은 모든 CPU 코어를 최대한 활용하고 싶을 정도로
+> 대규모 데이터를 처리하는 경우에 유용하다. 그래서 장바구니에 있는 다섯 가지 상품의 가격 합계를 계산할 때는 적당하지 않다.
+> 
+> 코틀린은 병렬 연산을 구현하려고 시도하지 않고 두 가지 추상화만을 제공한다. 첫 번째는 컬렉션 변환과 축약에 유용한 이터러블(iterable) 이고,
+> 두 번째는 지연 계산을 제공하는 시퀀스(sequence) 이다.
+
+### 코틀린 이터러블
+> 코틀린은 컬렉션 연산을 정의하기 위해 새로운 인터페이스를 정의하는 대신 Iterable 에 대한 확장 함수를 제공한다.
+> ```java
+> // java 코드
+> public static double averageNonBlankLength(List<String> strings) {
+>     return strings
+>         .stream()
+>         .filter(s -> !s.isBlank())
+>         .mapToInt(String::length)
+>         .sum()
+>         / (double) strings.size();
+> }
+> ```
+> ```kotlin
+> fun averageNonBlankLength(strings: List<String>): Double = 
+>     (strings
+>           .filter { it.isNotBlank() }
+>           .map(String::length)
+>           .sum()
+>           / strings.size.toDouble()
+>     ) 
+> ```
+> 여기 있는 filter 는 Iterable 에 대한 확장 함수다. 하지만 다른 Stream 을 반환하는 Stream.filter 와 달리 코틀린 filter 는
+> List 를 반환한다.(List 도 Iterable 이기 때문에 함수 호출을 계속 연쇄할 수 있다.)
+> map 도 List 를 반환하므로 이 식은 메모리에 2개의 리스트(filter 로 처리된 리스트와 map 으로 처리된 리스트)를 추가로 만든다.
+> 
+> 이 코틀린 코드는 컬렉션 크기가 크지 않다면 빠르게 작동한다. 이런 성격은 컬렉션이 긴 경우에만 빨라지는 자바 스트림과는 반대다.
+> 컬렉션이 크다면 코틀린에서는 시퀀스로 전환할 수 있다.
+
+### 코틀린 시퀀스
+> 코틀린 Sequence 추상화는 자바 스트림과 같은 지연 계산을 제공한다. Sequence 에 대한 map 연산은 다른 Sequence 를 반환한다.
+> 시퀀스 연쇄의 연산은 어떤 최종 연산이 파이프라인 평가를 요구할 때 이뤄진다. Collection 이나 Iterable 심지어 Iterator 에도
+> 시퀀스 변환을 위한 asSequence() 확장 함수가 들어있다.
+> ```kotlin
+> fun averageNonBlankLength(strings: List<String>): Double = 
+>     (strings
+>           .asSequence()
+>           .filter { it.isNotBlank() }
+>           .map(String::length)
+>           .sum()
+>           / strings.size.toDouble()
+>     )  
+> ```
+> Iterable 에 대한 연산은 즉시 계산이지만 Sequence 에 대한 연산은 지연 계산이기 때문에 이 둘을 아무 불이익 없이
+> 바꿔 사용할 수는 없다. 이들이 비슷한 API 를 제공한다는 점은 이 예제와 같은 상황에서 이터러블과 시퀀스를 서로 전환하고 싶을 때
+> 소스 코드를 거의 바꾸지 않아도 된다는 사실을 의미한다.
+>
+> 위의 함수의 시퀀스 버전에서는 각 단계의 결과를 저장하기 위한 중간 리스트 생성 비용이 들지 않는다. 하지만 원소 갯수가 적다면
+> 파이프라인을 만들고 실행하는 비용이 리스트를 생성하는 비용보다 더 비싸진다. 예제의 경우 Int 길이를 여전히 Integer 로
+> 박싱해야 하지만 모든 리스트의 원소를 박싱하지는 않고 한 번에 하나씩만 하게 된다. 게다가 API 설계자들은 박시을 피하기 위해
+> 더 영리한 해법을 제공한다.
+> ```kotlin
+> fun averageNonBlankLength(strings: List<String>): Double = 
+>     (strings
+>           .asSequence()
+>           .filter { it.isNotBlank() }
+>           .sumOf(String::length)
+>           / strings.size.toDouble()
+>     )   
+> ```
+> 이 예제의 경우 sumOf 가 그런 영리한 해법이다. sumOf 는 Int 를 반환하는 함수를 파라미터로 받는 방식으로 박싱을 피한다.
+> sumOf 가 최종 연산이라서 다른 시퀀스나 컬렉션을 반환하지 않기 때문에 이런 식의 성능 향상이 가능하다.
+
+### 다중 이터레이션
+> 자바 스트림에서 다음 코드는 사용을 피해야 한다.
+> ```java
+> public static double averageNonBlankLength(List<String> strings) {
+>     return averageNonBlankLength(strings.stream());
+> }
+> 
+> public static double averageNonBlankLength(Stream<String> strings) {
+>     return strings
+>         .filter(s -> !s.isBlank())
+>         .mapToInt(String::length)
+>         .sum()
+>         / (double) strings.count(); 
+> }
+> ```
+> Stream 에는 size 프로퍼티가 없지만 count() 가 같은 결과를 돌려주기 때문에 count() 를 사용한다.
+> 이 코드를 실행하면 IllegalStateException 예외가 발생한다.
+> 
+> 문제는 Stream 은 모든 원소를 소비하면 (여기서는 sum 이 모든 원소를 소비한다) 다시 처음으로 돌아가 count 를 통해
+> 원소 갯수를 셀 수는 없다.
+> 
+> 이제 Sequence 에 대해 같은 일을 진행해 보자.
+> ```kotlin
+> // 정상 작동
+> fun averageNonBlankLength(strings: List<String>): Double = 
+>     averageNonBlankLength(strings.asSequence())
+>
+> // 오류 발생
+> fun averageNonBlankLength(strings: Iterator<String>) : Double =
+>     averageNonBlankLength(strings.asSequence())
+> 
+> fun averageNonBlankLength(strings: Sequence<String>) : Double =
+>     (strings
+>           .filter { it.isNotBlank() }
+>           .sumOf(String::length)
+>           / strings.count().toDouble()
+>     )    
+> ```
+> 몇몇 시퀀스는 여러 번 이터레이션해도 안전하다는 점이 드러난다. 예를 들어 메모리에 저장된 컬렉션에 따라 뒷받침되는 시퀀스의 경우
+> 여러 번 이터레이션해도 안전하다. 하지만 이제는 Sequence 가 Iterator 에 따라 뒷받침되기 때문에 (sum 에 의한) 첫 번째 실행은
+> Iterator.hasNext() 가 false 를 반환할 때까지 진행된다. 하지만 (count 로 원소 갯수를 세기 위해) 이 Sequence 를 다시 
+> 실행하려고 할 때 Iterator 의 상태가 변경되지 않기 때문에 hasNext() 가 바로 false 를 반환한다. 이로 인해 strings.count() 가
+> 0을 반환하면 함수가 항상 Infinity 를 반환하게 된다.
+> 
+> 이런 동작은 바람직하지 않기 때문에 이터레이터를 둘러싸는 시퀀스는 의도적으로 Sequence.constrainOnce() 로 졔약해서 이런 동작을
+> 막는다. constrainOnce() 는 시퀀스를 두 번 소비하려고 시도하면 IllegalStateException 을 던진다.
+> 
+> 위의 예제는 맨 마지막에 count 를 쓰는 대신, 첫 번째 이터레이션을 수행하면서 개수를 세는 방식으로 문제를 해결할 수 있다.
+> ```kotlin
+> fun averageNonBlankLength(strings: Sequence<String>) : Double {
+>     var count = 0
+>     return (strings
+>           .onEach { count++ }
+>           .filter { it.isNotBlank() }
+>           .sumOf(String::length)
+>           / count.toDouble()) 
+> }
+> ```
+> Stream 과 Sequence 의 핵심은 이들이 크기가 정해져 있지 않은 큰 데이터집합을 다룰 수 있게 해 준다는 점에 있다.
+> 그런데 이런 데이터 집합의 원소 개수를 하나하나 세서 전체 크기를 알아내는 과정은 그리 효율적이지 못하다.
+> 게다가 항상 개수를 셀 수 있는 것도 아니다. 보통 Sequence 를 한 번 이상 이터레이션할 수 있는 경우라 해도 실제로는 애초에 우리가
+> Sequence 를 사용해야만 했던 이유로 인해 개수를 세는 과정이 비효율적일 가능성이 크다.
+
+### 스트림, 이터러블 시퀀스 사이에 선택하기
+> 처음에는 자바의 스트림 코드를 이터러블로 변환한다. 그리고 만약 이터러블이 큰 컬렉션에 대해 너무 느리다는 사실이 판명되면(또는
+> 메모리를 너무 많이 잡아먹는다는 사실이 판명되면) 이터러블을 시퀀스로 바꾼다. 시퀀스로 바꾸는 것만으로 충분하지 않다면 스트림으로
+> 바꿔서 병렬성의 이점을 살리도록 시도해볼 수 있다.
+> 
+> 코틀린 표준 라이브러리에는 Stream<T>.asSequence() 와 Sequence<T>.asStream() 확장 함수가 들어 있어서 일을 하는 도중에
+> 스트림으로 바꿔탈 수 있게 해준다.
+
+### 계산과 동작
+> 계산의 경우 호출 위치를 변경해도 계산 자체의 결과나 그 계산을 사용하는 다른 코드의 결과에 영향을 끼치지 못하기 때문에
+> 리팩터링을 해도 안전하다. 반대로 동작을 이터러블에서 시퀀스로 옮기거나 반대 방향으로 옮기면 호출되는 순서가 달라질 수 있고
+> 그에 따라 프로그램의 출력도 달라질 수 있다.
+
+---
+
