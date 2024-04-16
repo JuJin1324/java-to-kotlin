@@ -602,4 +602,107 @@
 
 --- 
 
+## 인터페이스에서 함수로
+### 객체 지향 캡슐화
+> ```kotlin
+> data class Email(
+>     val to: EmailAddress,
+>     val from: EmailAddress,
+>     val subject: String,
+>     val body: String
+> )
+> ```
+> 이메일을 보내기 위해서 객체 지향 방식으로 다음과 같이 구현한다.
+> ```kotlin
+> class EmailSender(
+>     private val serverAddress: InetAddress,
+>     private val username: String,
+>     private val password: String
+> ) {
+>     fun send(email: Email) {
+>         sendEmail(
+>             email,
+>             serverAddress,
+>             username,
+>             password
+>         )
+>     }
+> }
+> 
+> // 클라이언트
+> val sender: EmailSender = EmailSender(
+>     inetAddress("smtp.github.com"),
+>     "username",
+>     "password"
+> )
+> 
+> sender.send(
+>     Email(
+>         to = parse("support@github.com"),
+>         from = parse("support@gmail.com"),
+>         subject = "Thanks",
+>         body = "..."
+>     )
+> )
+> ```
+> 이메일을 보낼 때마다 serverAddress, username, password 를 넣지 않기 위해서 EmailSender 클래스에 캡슐화 하였다.
+> 그래서 이메일을 전송하기 위해서 send 메서드를 호출할 때 email 정보만 넘기면 된다. 
+>
+> ```kotlin
+> interface ISendEmail {
+>     fun send(email: Email)
+> }
+> 
+> class EmailSender(
+>     ...
+> ): ISendEmail {
+>     override fun send(email: Email) {
+>         sendEmail(
+>             email,
+>             serverAddress,
+>             username,
+>             password
+>         )
+>     } 
+> }
+> ```
+> 인터페이스를 추출하는 경우도 자주 있다.
+
+### 함수형 캡슐화
+> 함수형으로 `부분 적용`은 함수의 인자 중 일부를 고정시키면서 인자가 더 적은 새 함수를 만들어내는 기법이다.  
+> 부분 적용을 적용하여 함수형 캡슐화를 달성한다.
+> 
+> ```kotlin
+> fun createEmailSender(
+>     serverAddress: InetAddress,
+>     username: String,
+>     password: String 
+> ): (Email) -> Unit = {
+>     email -> 
+>         sendEmail(
+>             email,
+>             serverAddress,
+>             username,
+>             password
+>         )
+> }
+> 
+> // 클라이언트
+> val sender: (Email) -> Unit = createEmailSender(
+>     inetAddress("smtp.github.com"),
+>     "username",
+>     "password"
+> )
+> 
+> sender(   // 혹은 sender.invoke
+>     Email(
+>         to = parse("support@github.com"),
+>         from = parse("support@gmail.com"),
+>         subject = "Thanks",
+>         body = "..."
+>     )
+> )
+> ```
+
+--- 
 
