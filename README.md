@@ -711,3 +711,132 @@
 
 --- 
 
+## 코틀린 추상 클래스와 인터페이스
+### 추상 클래스
+> 추상 클래스 는 대략적인 설계의 명세와 공통의 기능을 구현한 클래스이다. 즉, 구체적이지 않은 것이다. 
+> 추상 클래스 를 상속하는 하위 클래스 는 추상 클래스의 내용을 더 구체화 해야 한다.
+> ```kotlin
+> abstract class Vehicle(val name : String, val color : String, val weight : Double) {
+>     // abstract 로 정의한 추상 프로퍼티이므로 하위 클래스에서 반드시 재정의해야한다.
+>     abstract var maxSpeed : Double 
+>     
+>     // 초기값을 갖는 일반 프로퍼티 (인터페이스에서는 불가능)	
+>     var year = "2021"
+>    
+>     // abstract 로 정의한 추상 메소드이므로 하위 클래스에서 반드시 재정의해야한다.
+>     abstract fun start()
+>     abstract fun stop()
+>     
+>     fun displaySpecs() {
+>     	  println("Name : $name, Color : $color, Weight : $weight, Year : $year, MaxSpeed : $maxSpeed")
+>     }
+> }
+> ```
+> Vehicle 클래스 는 abstract로 정의한 추상 클래스이므로 기본적인 설계만 정의하고 있다. 
+> abstract 를 사용한 maxSpeed, start(), stop()은 반드시 하위 클래스에서 재정의 해줘야한다.
+
+### 인터페이스
+> 인터페이스 역시 대략적인 설계 명세를 구현하고 인터페이스 를 상속하는 하위 클래스 에서 이를 구체화하는 것은 동일하다. 
+> 하지만 인터페이스에서는 프로퍼티의 상태 정보를 저장할 수 없다.
+> ```kotlin
+> interface Vehicle {
+> 	val name : String
+> 	val color : String
+> 	val weight : Double
+> }
+> 
+> interface Pet {
+> val name : String = "puppy" // 불가능!
+> }
+> ```
+> Pet Interface 의 경우 정의와 동시에 초기화까지 해주고 있는데 인터페이스 에선 불가능하다.
+> 하지만 예외가 있다. val 로 선언한 프로퍼티 는 게터 를 통해서 필요한 내용을 구현할 수 있다.
+> ```kotlin
+> interface Pet {
+>   var category : String // 추상 프로퍼티
+>   val message : String  // val 로 선언하면 게터의 구현이 가능하다.
+>       get() = "I'm cutty"
+>   
+>   fun feeding()  // 추상 메소드
+>   fun patting() { // 구현부를 포함할 수 있다. 구현부를 포함하면 일반 메소드
+>   	println("Keep patting")
+>   }
+> }
+> ```
+> 게터 가 사용 가능하지만 그렇다고 보조필드 가 사용가능한 것은 아니다.
+
+### 봉인된 클래스(Sealed class)
+> Kotlin 에서는 when 이라는 키워드를 사용하여 조건을 나눌 수 있다. 
+> 이렇게 조건을 나누면서도 조건마다 값을 반환할 수 있는데, when 이 값을 반환해야 하는 경우라면, 예외없이 모든 경우를 다뤄야 한다.
+> 다음과 같은 경우를 보자.  
+> Example1. when을 통한 분기 처리와 값 반환
+> ```kotlin
+> interface Fruit
+> class Apple:Fruit
+> class Banana:Fruit
+> 
+> fun main(){
+>     val fruits = arrayListOf(Apple(), Banana())
+>     val someFruit = when(fruits[0]){
+>         is Apple -> "Apple"
+>         is Banana -> "Banana"
+>         else -> "No Fruit"    //빠지면 컴파일 오류
+>     }
+>     println(someFruit)
+> }
+> //결과 : Apple
+> ```
+> Example1에서는 someFruit 에 when 을 통하여 문자열 값을 넣어주고 있다. 
+> Fruit 을 상속받는 것은 실제로 Apple 과 Banana 뿐이지만, Example1의 when 에서 else가 빠지면 컴파일 오류로 실행되지 않는다. 
+> Sealed class 는 `Fruit의 자식 클래스는 Apple과 Banana가 전부야!`라는 사실을 컴파일러에게 알려주는 역할을 수행하며, 
+> 이것이 Sealed class 의 핵심 기능이기도 하다.
+> 
+> Sealed class를 관리하는 방법에는 두 가지가 있다.
+> 하나는 Sealed class 의 중첩 클래스로 포함시키는 것과, 다른 하나는 중첩 클래스로 포함시키지 않는 것이다. 
+> 두 경우 모두 Sealed class 에 포함시킬 클래스는 Sealed class 의 자식 클래스로 정의한다.
+> ```kotlin
+> // Example2-1. nested class 로 Sealed class 에 포함시키기
+> sealed class Fruit{
+>     class Apple: Fruit()
+>     class Banana: Fruit()
+> }
+> 
+> fun main(){
+>     val fruits = arrayListOf(Fruit.Apple(), Fruit.Banana())
+>     val someFruit = when(fruits[0]) {
+>         is Fruit.Apple -> "Apple"
+>         is Fruit.Banana -> "Banana"
+>     }
+>     println(someFruit)
+> }
+> //결과 : Apple
+> 
+> // Example2-2. nested class를 이용하지 않고 Sealed class에 포함시키기
+> sealed class Fruit
+> class Apple:Fruit()
+> class Banana:Fruit()
+> 
+> fun main(){
+>     val fruits = arrayListOf(Apple(), Banana())
+>     val someFruit = when(fruits[0]) {
+>         is Apple -> "Apple"
+>         is Banana -> "Banana"
+>     }
+>     println(someFruit)
+> }
+> //결과 : Apple
+> ```
+> 물론 두 가지 경우를 혼합하여도 실행은 되는데, 특별한 경우가 아니면 한 가지의 방법만 선택하는 것이 유지, 보수에 좋을 것이라 생각한다. 
+> 중첩 클래스를 이용하면 분기할 클래스 앞에 Sealed class 의 이름을 적어주어야 하는 것이 차이점이다.
+> 
+> **Sealed class 특징**  
+> * 기본 가시성은 public, open 이다.  
+> * Sealed class 는 추상 클래스이고, 객체화할 수 없으며 private 생성자를 갖고 있다.
+> * Sealed class 의 하위 클래스들은 동일한 파일에 정의되어야 한다. 서로 다른 파일에서 정의할 수 없다.
+> * Sealed interface 도 있다.(2020.02.22 기준으로 kotlin 1.5 시험 버전에서 사용 가능한 상태이다.)
+> * Sealed class 를 사용하면 타입 분기로 사용되는 when 이 반드시 값을 반환해야 하고, Sealed class 타입을 인자로 받을 때, 
+> 나눠지는 조건은 Sealed class 의 하위 클래스 타입 전부이어야하며, else 가 없어도 정상 작동한다.
+
+### 참조사이트
+> [[코틀린 완전정복] 추상 클래스와 인터페이스](https://velog.io/@k906506/Kotlin-추상-클래스-VS-인터페이스)  
+> [[Kotlin] 클래스 9 — 봉인된 클래스(sealed class), 열거형 클래스(enum class)](https://medium.com/depayse/kotlin-클래스-9-봉인된-클래스-sealed-class-열거형-클래스-enum-class-44a49465a3d)  
